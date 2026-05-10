@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Study AI</title>
+    <style>
+        body {
+            margin: 0;
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            background: #0f172a;
+            color: #e5e7eb;
+        }
+        .app {
+            display: flex;
+            height: 100vh;
+        }
+        .left, .right {
+            padding: 20px;
+        }
+        .left {
+            width: 40%;
+            border-right: 1px solid #1f2937;
+            background: #020617;
+        }
+        .right {
+            width: 60%;
+            background: #020617;
+        }
+        h1 {
+            margin-top: 0;
+            font-size: 24px;
+        }
+        .section-title {
+            font-size: 14px;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: #9ca3af;
+            margin-bottom: 8px;
+        }
+        textarea {
+            width: 100%;
+            height: 260px;
+            background: #020617;
+            border: 1px solid #1f2937;
+            border-radius: 8px;
+            padding: 10px;
+            color: #e5e7eb;
+            resize: vertical;
+            font-size: 14px;
+        }
+        textarea:focus {
+            outline: none;
+            border-color: #22c55e;
+        }
+        .upload-box {
+            border: 1px dashed #374151;
+            border-radius: 8px;
+            padding: 12px;
+            margin-bottom: 16px;
+            background: #020617;
+            font-size: 13px;
+        }
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 8px 14px;
+            border-radius: 999px;
+            border: none;
+            cursor: pointer;
+            font-size: 13px;
+        }
+        .btn-primary {
+            background: #22c55e;
+            color: #022c22;
+            font-weight: 600;
+        }
+        .btn-secondary {
+            background: #111827;
+            color: #e5e7eb;
+            border: 1px solid #1f2937;
+        }
+        .top-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+        .tabs {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 12px;
+        }
+        .tab {
+            padding: 6px 10px;
+            border-radius: 999px;
+            font-size: 13px;
+            cursor: pointer;
+            border: 1px solid #1f2937;
+            background: #020617;
+            color: #9ca3af;
+        }
+        .tab.active {
+            background: #22c55e;
+            color: #022c22;
+            border-color: #22c55e;
+            font-weight: 600;
+        }
+        .output-box {
+            border-radius: 8px;
+            border: 1px solid #1f2937;
+            background: #020617;
+            padding: 12px;
+            height: calc(100vh - 200px);
+            overflow-y: auto;
+            font-size: 14px;
+            white-space: pre-wrap;
+        }
+        .footer {
+            position: absolute;
+            bottom: 10px;
+            right: 20px;
+        }
+        .audio-player {
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+<div class="app">
+    <div class="left">
+        <h1>Study AI</h1>
+        <div class="section-title">Your notes</div>
+
+        <div class="upload-box">
+            <div style="margin-bottom: 8px; font-weight: 500;">Upload PDF</div>
+            <input type="file" id="fileInput" accept=".pdf" style="margin-bottom: 8px;">
+            <button class="btn btn-secondary" onclick="uploadFile()">Upload & fill notes</button>
+            <div style="font-size: 12px; color: #9ca3af; margin-top: 6px;">
+                Upload a PDF and we’ll pull the text into your notes box.
+            </div>
+        </div>
+
+        <textarea id="notesInput" placeholder="Paste your notes here..."></textarea>
+        <div style="font-size: 12px; color: #9ca3af; margin-top: 6px;">
+            Tip: Start with a topic like “Energy stores in physics” or “Atoms, elements, compounds”.
+        </div>
+    </div>
+
+    <div class="right">
+        <div class="top-row">
+            <div class="section-title">Generated study mode</div>
+            <button class="btn btn-primary" onclick="generate()">Generate</button>
+        </div>
+
+        <div class="tabs">
+            <div class="tab active" data-mode="flashcards" onclick="setMode(this)">Flashcards</div>
+            <div class="tab" data-mode="mcq" onclick="setMode(this)">MCQ Quiz</div>
+            <div class="tab" data-mode="exam" onclick="setMode(this)">Exam Questions</div>
+            <div class="tab" data-mode="podcast" onclick="setMode(this)">Podcast</div>
+        </div>
+
+        <div id="output" class="output-box">
+            Paste notes on the left, pick a mode above, then click “Generate”.
+        </div>
+
+        <div id="podcastAudioContainer" class="audio-player"></div>
+    </div>
+</div>
+
+<script>
+let currentMode = "flashcards";
+
+function setMode(el) {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    el.classList.add('active');
+    currentMode = el.getAttribute('data-mode');
+    document.getElementById('podcastAudioContainer').innerHTML = "";
+}
+
+function uploadFile() {
+    const fileInput = document.getElementById('fileInput');
+    const file = fileInput.files[0];
+
+    if (!file) {
+        alert("Please select a PDF first.");
+        return;
+    }
+
+    const formData = new FormData();
+    formData.append("file", file);
+
+    fetch("/upload", {
+        method: "POST",
+        body: formData
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.error) {
+            alert(data.error);
+            return;
+        }
+        alert(data.message);
+        if (data.text) {
+            document.getElementById("notesInput").value = data.text;
+        }
+    })
+    .catch(err => {
+        console.error(err);
+        alert("Upload failed.");
+    });
+}
+
+function generate() {
+    const notes = document.getElementById("notesInput").value.trim();
+    if (!notes) {
+        alert("Please paste notes or upload a PDF first.");
+        return;
+    }
+
+    document.getElementById("output").textContent = "Thinking...";
+
+    fetch("/generate", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ notes, mode: currentMode })
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.error) {
+            document.getElementById("output").textContent = data.error;
+            return;
+        }
+
+        if (data.type === "flashcards") {
+            let text = "";
+            data.cards.forEach((c, i) => {
+                text += `Card ${i+1}\nQ: ${c.front}\nA: ${c.back}\n\n`;
+            });
+            document.getElementById("output").textContent = text || "No cards generated.";
+        } else if (data.type === "mcq") {
+            let text = "";
+            data.questions.forEach((q, i) => {
+                text += `Q${i+1}: ${q.question}\n`;
+                q.options.forEach((opt, j) => {
+                    text += `  ${String.fromCharCode(65+j)}. ${opt}\n`;
+                });
+                text += `Answer: ${q.answer}\n\n`;
+            });
+            document.getElementById("output").textContent = text;
+        } else if (data.type === "exam") {
+            let text = "";
+            data.questions.forEach((q, i) => {
+                text += `Q${i+1} (${q.marks} marks): ${q.question}\n\n`;
+            });
+            document.getElementById("output").textContent = text;
+        } else if (data.type === "podcast") {
+            document.getElementById("output").textContent = data.script || "No script generated.";
+            makePodcastAudio(data.script);
+        } else {
+            document.getElementById("output").textContent = "Unknown response.";
+        }
+    })
+    .catch(err => {
+        console.error(err);
+        document.getElementById("output").textContent = "Error generating content.";
+    });
+}
+
+function makePodcastAudio(script) {
+    if (!script) return;
+    document.getElementById("podcastAudioContainer").innerHTML = "Generating audio...";
+
+    fetch("/podcast-audio", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ script })
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.error) {
+            document.getElementById("podcastAudioContainer").textContent = data.error;
+            return;
+        }
+        const url = data.audio_url;
+        document.getElementById("podcastAudioContainer").innerHTML =
+            `<audio controls src="${url}"></audio>`;
+    })
+    .catch(err => {
+        console.error(err);
+        document.getElementById("podcastAudioContainer").textContent = "Error generating audio.";
+    });
+}
+</script>
+</body>
+</html>
+
